@@ -9,7 +9,6 @@ namespace JWTExample.Data
 
         public DataContext(DbContextOptions<DataContext> dbContextOptions) : base(dbContextOptions)
         {
-
         }
     }
 }

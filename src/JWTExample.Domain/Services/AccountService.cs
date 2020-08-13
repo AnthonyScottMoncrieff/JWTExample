@@ -5,17 +5,10 @@ using JWTExample.Domain.Services.Interfaces;
 using JWTExample.Models.Auth;
 using JWTExample.Models.Entities;
 using JWTExample.Models.Interfaces;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading.Tasks;
 using BC = BCrypt.Net.BCrypt;
 
@@ -30,6 +23,7 @@ namespace JWTExample.Domain.Services
         private readonly IMapper<Account, AuthenticateResponse> _authMapper;
         private readonly IMapper<RegisterRequest, Account> _registerRequestMapper;
         private readonly IAccountUpdater _accountUpdater;
+        private readonly IAccountServiceHelpers _accountServiceHelpers;
 
         public AccountService(
             DataContext context,
@@ -38,7 +32,8 @@ namespace JWTExample.Domain.Services
             IMapper<CreateRequest, Account> createRequestMapper,
             IMapper<Account, AuthenticateResponse> authMapper,
             IMapper<RegisterRequest, Account> registerRequestMapper,
-            IAccountUpdater accountUpdater)
+            IAccountUpdater accountUpdater,
+            IAccountServiceHelpers accountServiceHelpers)
         {
             _context = context;
             _appSettings = appSettings;
@@ -47,6 +42,7 @@ namespace JWTExample.Domain.Services
             _authMapper = authMapper;
             _registerRequestMapper = registerRequestMapper;
             _accountUpdater = accountUpdater;
+            _accountServiceHelpers = accountServiceHelpers;
         }
 
         public async Task<AuthenticateResponse> Authenticate(AuthenticateRequest model, string ipAddress)
@@ -57,8 +53,8 @@ namespace JWTExample.Domain.Services
                 throw new Exception("Email or password is incorrect");
 
             // authentication successful so generate jwt and refresh tokens
-            var jwtToken = generateJwtToken(account);
-            var refreshToken = generateRefreshToken(ipAddress);
+            var jwtToken = _accountServiceHelpers.generateJwtToken(account, _appSettings);
+            var refreshToken = _accountServiceHelpers.generateRefreshToken(ipAddress);
 
             // save refresh token
             account.RefreshTokens.Add(refreshToken);
@@ -73,10 +69,10 @@ namespace JWTExample.Domain.Services
 
         public async Task<AuthenticateResponse> RefreshToken(string token, string ipAddress)
         {
-            var (refreshToken, account) = await getRefreshToken(token);
+            var (refreshToken, account) = await _accountServiceHelpers.getRefreshToken(token, _context);
 
             // replace old refresh token with a new one and save
-            var newRefreshToken = generateRefreshToken(ipAddress);
+            var newRefreshToken = _accountServiceHelpers.generateRefreshToken(ipAddress);
             refreshToken.Revoked = DateTime.UtcNow;
             refreshToken.RevokedByIp = ipAddress;
             refreshToken.ReplacedByToken = newRefreshToken.Token;
@@ -85,7 +81,7 @@ namespace JWTExample.Domain.Services
             await _context.SaveChangesAsync();
 
             // generate new jwt
-            var jwtToken = generateJwtToken(account);
+            var jwtToken = _accountServiceHelpers.generateJwtToken(account, _appSettings);
 
             var response = _authMapper.Map(account);
             response.JwtToken = jwtToken;
@@ -95,7 +91,7 @@ namespace JWTExample.Domain.Services
 
         public async Task RevokeToken(string token, string ipAddress)
         {
-            var (refreshToken, account) = await getRefreshToken(token);
+            var (refreshToken, account) = await _accountServiceHelpers.getRefreshToken(token, _context);
 
             // revoke token and save
             refreshToken.Revoked = DateTime.UtcNow;
@@ -148,7 +144,7 @@ namespace JWTExample.Domain.Services
 
         public async Task<AccountResponse> GetById(int id)
         {
-            var account = await getAccount(id);
+            var account = await _accountServiceHelpers.getAccount(id, _context);
             return _accountResponseMapper.Map(account);
         }
 
@@ -175,7 +171,7 @@ namespace JWTExample.Domain.Services
 
         public async Task<AccountResponse> Update(int id, UpdateRequest model)
         {
-            var account = await getAccount(id);
+            var account = await _accountServiceHelpers.getAccount(id, _context);
 
             // validate
             var matchingAccounts = await _context.Accounts.AnyAsync(x => x.Email == model.Email);
@@ -197,61 +193,9 @@ namespace JWTExample.Domain.Services
 
         public async Task Delete(int id)
         {
-            var account = await getAccount(id);
+            var account = await _accountServiceHelpers.getAccount(id, _context);
             _context.Accounts.Remove(account);
             _context.SaveChanges();
-        }
-
-        // helper methods
-
-        private async Task<Account> getAccount(int id)
-        {
-            var account = await _context.Accounts.FindAsync(id);
-            if (account == null) throw new KeyNotFoundException("Account not found");
-            return account;
-        }
-
-        private async Task<(RefreshToken, Account)> getRefreshToken(string token)
-        {
-            var account = await _context.Accounts.SingleOrDefaultAsync(u => u.RefreshTokens.Any(t => t.Token == token));
-            if (account == null) throw new Exception("Invalid token");
-            var refreshToken = account.RefreshTokens.Single(x => x.Token == token);
-            if (!refreshToken.IsActive) throw new Exception("Invalid token");
-            return (refreshToken, account);
-        }
-
-        private string generateJwtToken(Account account)
-        {
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.ASCII.GetBytes(_appSettings.Secret);
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new ClaimsIdentity(new[] { new Claim("id", account.Id.ToString()) }),
-                Expires = DateTime.UtcNow.AddMinutes(15),
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-            };
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            return tokenHandler.WriteToken(token);
-        }
-
-        private RefreshToken generateRefreshToken(string ipAddress)
-        {
-            return new RefreshToken
-            {
-                Token = randomTokenString(),
-                Expires = DateTime.UtcNow.AddDays(7),
-                Created = DateTime.UtcNow,
-                CreatedByIp = ipAddress
-            };
-        }
-
-        private string randomTokenString()
-        {
-            using var rngCryptoServiceProvider = new RNGCryptoServiceProvider();
-            var randomBytes = new byte[40];
-            rngCryptoServiceProvider.GetBytes(randomBytes);
-            // convert random bytes to hex string
-            return BitConverter.ToString(randomBytes).Replace("-", "");
         }
     }
 }

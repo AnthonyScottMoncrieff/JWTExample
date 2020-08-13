@@ -39,6 +39,7 @@ namespace JWTExample
         {
             services.AddTransient<IAccountControllerHelpers, AccountControllerHelpers>();
             services.AddTransient<IAccountService, AccountService>();
+            services.AddTransient<IAccountServiceHelpers, AccountServiceHelpers>();
         }
 
         private static void RegisterLogging(IServiceCollection services)
