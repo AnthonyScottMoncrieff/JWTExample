@@ -5,7 +5,7 @@ using JWTExample.Models.Auth;
 using JWTExample.Models.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace JWTExample.Controllers
 {
@@ -25,25 +25,25 @@ namespace JWTExample.Controllers
         }
 
         [HttpPost("authenticate")]
-        public ActionResult<AuthenticateResponse> Authenticate(AuthenticateRequest model)
+        public async Task<IActionResult> Authenticate(AuthenticateRequest model)
         {
-            var response = _accountService.Authenticate(model, _accountControllerHelpers.GetIpAddress(Response, HttpContext));
+            var response = await _accountService.Authenticate(model, _accountControllerHelpers.GetIpAddress(Response, HttpContext));
             _accountControllerHelpers.SetTokenCookie(response.RefreshToken, Response);
             return Ok(response);
         }
 
         [HttpPost("refresh-token")]
-        public ActionResult<AuthenticateResponse> RefreshToken()
+        public async Task<IActionResult> RefreshToken()
         {
             var refreshToken = Request.Cookies["refreshToken"];
-            var response = _accountService.RefreshToken(refreshToken, _accountControllerHelpers.GetIpAddress(Response, HttpContext));
+            var response = await _accountService.RefreshToken(refreshToken, _accountControllerHelpers.GetIpAddress(Response, HttpContext));
             _accountControllerHelpers.SetTokenCookie(response.RefreshToken, Response);
             return Ok(response);
         }
 
         [BespokeAuthorize]
         [HttpPost("revoke-token")]
-        public IActionResult RevokeToken(RevokeTokenRequest model)
+        public async Task<IActionResult> RevokeToken(RevokeTokenRequest model)
         {
             // accept token from request body or cookie
             var token = model.Token ?? Request.Cookies["refreshToken"];
@@ -55,55 +55,55 @@ namespace JWTExample.Controllers
             if (!_account.OwnsToken(token) && _account.Role != Role.Admin)
                 return Unauthorized(new { message = "UnBespokeAuthorized" });
 
-            _accountService.RevokeToken(token, _accountControllerHelpers.GetIpAddress(Response, HttpContext));
+            await _accountService.RevokeToken(token, _accountControllerHelpers.GetIpAddress(Response, HttpContext));
             return Ok(new { message = "Token revoked" });
         }
 
         [HttpPost("register")]
-        public IActionResult Register(RegisterRequest model)
+        public async Task<IActionResult> Register(RegisterRequest model)
         {
-            _accountService.Register(model, Request.Headers["origin"]);
+            await _accountService.Register(model);
             return Ok(new { message = "Registration successful, please check your email for verification instructions" });
         }
 
         [HttpPost("validate-reset-token")]
-        public IActionResult ValidateResetToken(ValidateResetTokenRequest model)
+        public async Task<IActionResult> ValidateResetToken(ValidateResetTokenRequest model)
         {
-            _accountService.ValidateResetToken(model);
+            await _accountService.ValidateResetToken(model);
             return Ok(new { message = "Token is valid" });
         }
 
         [BespokeAuthorize(Role.Admin)]
         [HttpGet]
-        public ActionResult<IEnumerable<AccountResponse>> GetAll()
+        public async Task<IActionResult> GetAll()
         {
-            var accounts = _accountService.GetAll();
+            var accounts = await _accountService.GetAll();
             return Ok(accounts);
         }
 
         [BespokeAuthorize]
         [HttpGet("{id:int}")]
-        public ActionResult<AccountResponse> GetById(int id)
+        public async Task<IActionResult> GetById(int id)
         {
             // users can get their own account and admins can get any account
             if (id != _account.Id && _account.Role != Role.Admin)
                 return Unauthorized(new { message = "UnBespokeAuthorized" });
 
-            var account = _accountService.GetById(id);
+            var account = await _accountService.GetById(id);
             return Ok(account);
         }
 
         [BespokeAuthorize(Role.Admin)]
         [HttpPost]
-        public ActionResult<AccountResponse> Create(CreateRequest model)
+        public async Task<IActionResult> Create(CreateRequest model)
         {
-            var account = _accountService.Create(model);
+            var account = await _accountService.Create(model);
             return Ok(account);
         }
 
         [BespokeAuthorize]
         [HttpPut("{id:int}")]
-        public ActionResult<AccountResponse> Update(int id, UpdateRequest model)
+        public async Task<IActionResult> Update(int id, UpdateRequest model)
         {
             // users can update their own account and admins can update any account
             if (id != _account.Id && _account.Role != Role.Admin)
@@ -113,19 +113,19 @@ namespace JWTExample.Controllers
             if (_account.Role != Role.Admin)
                 model.Role = null;
 
-            var account = _accountService.Update(id, model);
+            var account = await _accountService.Update(id, model);
             return Ok(account);
         }
 
         [BespokeAuthorize]
         [HttpDelete("{id:int}")]
-        public IActionResult Delete(int id)
+        public async Task<IActionResult> Delete(int id)
         {
             // users can delete their own account and admins can delete any account
             if (id != _account.Id && _account.Role != Role.Admin)
                 return Unauthorized(new { message = "UnBespokeAuthorized" });
 
-            _accountService.Delete(id);
+            await _accountService.Delete(id);
             return Ok(new { message = "Account deleted successfully" });
         }
     }

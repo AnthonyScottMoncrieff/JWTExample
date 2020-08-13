@@ -1,28 +1,29 @@
 ﻿using JWTExample.Models.Auth;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace JWTExample.Domain.Services.Interfaces
 {
     public interface IAccountService
     {
-        AuthenticateResponse Authenticate(AuthenticateRequest model, string ipAddress);
+        Task<AuthenticateResponse> Authenticate(AuthenticateRequest model, string ipAddress);
 
-        AuthenticateResponse RefreshToken(string token, string ipAddress);
+        Task<AuthenticateResponse> RefreshToken(string token, string ipAddress);
 
-        void RevokeToken(string token, string ipAddress);
+        Task RevokeToken(string token, string ipAddress);
 
-        void Register(RegisterRequest model, string origin);
+        Task Register(RegisterRequest model);
 
-        void ValidateResetToken(ValidateResetTokenRequest model);
+        Task ValidateResetToken(ValidateResetTokenRequest model);
 
-        IEnumerable<AccountResponse> GetAll();
+        Task<IEnumerable<AccountResponse>> GetAll();
 
-        AccountResponse GetById(int id);
+        Task<AccountResponse> GetById(int id);
 
-        AccountResponse Create(CreateRequest model);
+        Task<AccountResponse> Create(CreateRequest model);
 
-        AccountResponse Update(int id, UpdateRequest model);
+        Task<AccountResponse> Update(int id, UpdateRequest model);
 
-        void Delete(int id);
+        Task Delete(int id);
     }
 }

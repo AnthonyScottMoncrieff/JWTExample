@@ -5,14 +5,18 @@ using JWTExample.Domain.Services.Interfaces;
 using JWTExample.Models.Auth;
 using JWTExample.Models.Entities;
 using JWTExample.Models.Interfaces;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 using BC = BCrypt.Net.BCrypt;
 
 namespace JWTExample.Domain.Services
@@ -45,9 +49,9 @@ namespace JWTExample.Domain.Services
             _accountUpdater = accountUpdater;
         }
 
-        public AuthenticateResponse Authenticate(AuthenticateRequest model, string ipAddress)
+        public async Task<AuthenticateResponse> Authenticate(AuthenticateRequest model, string ipAddress)
         {
-            var account = _context.Accounts.SingleOrDefault(x => x.Email == model.Email);
+            var account = await _context.Accounts.SingleOrDefaultAsync(x => x.Email == model.Email);
 
             if (account == null || !BC.Verify(model.Password, account.PasswordHash))
                 throw new Exception("Email or password is incorrect");
@@ -59,7 +63,7 @@ namespace JWTExample.Domain.Services
             // save refresh token
             account.RefreshTokens.Add(refreshToken);
             _context.Update(account);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
 
             var response = _authMapper.Map(account);
             response.JwtToken = jwtToken;
@@ -67,9 +71,9 @@ namespace JWTExample.Domain.Services
             return response;
         }
 
-        public AuthenticateResponse RefreshToken(string token, string ipAddress)
+        public async Task<AuthenticateResponse> RefreshToken(string token, string ipAddress)
         {
-            var (refreshToken, account) = getRefreshToken(token);
+            var (refreshToken, account) = await getRefreshToken(token);
 
             // replace old refresh token with a new one and save
             var newRefreshToken = generateRefreshToken(ipAddress);
@@ -78,7 +82,7 @@ namespace JWTExample.Domain.Services
             refreshToken.ReplacedByToken = newRefreshToken.Token;
             account.RefreshTokens.Add(newRefreshToken);
             _context.Update(account);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
 
             // generate new jwt
             var jwtToken = generateJwtToken(account);
@@ -89,21 +93,22 @@ namespace JWTExample.Domain.Services
             return response;
         }
 
-        public void RevokeToken(string token, string ipAddress)
+        public async Task RevokeToken(string token, string ipAddress)
         {
-            var (refreshToken, account) = getRefreshToken(token);
+            var (refreshToken, account) = await getRefreshToken(token);
 
             // revoke token and save
             refreshToken.Revoked = DateTime.UtcNow;
             refreshToken.RevokedByIp = ipAddress;
             _context.Update(account);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
         }
 
-        public void Register(RegisterRequest model, string origin)
+        public async Task Register(RegisterRequest model)
         {
             // validate
-            if (_context.Accounts.Any(x => x.Email == model.Email))
+            var accountExists = await _context.Accounts.AnyAsync(x => x.Email == model.Email);
+            if (accountExists)
             {
                 // send already registered error in email to prevent account enumeration
                 throw new Exception("User already registered");
@@ -113,7 +118,7 @@ namespace JWTExample.Domain.Services
             var account = _registerRequestMapper.Map(model);
 
             // first registered account is an admin
-            var isFirstAccount = _context.Accounts.Count() == 0;
+            var isFirstAccount = (await _context.Accounts.CountAsync()) == 0;
             account.Role = isFirstAccount ? Role.Admin : Role.User;
             account.Created = DateTime.UtcNow;
 
@@ -121,13 +126,13 @@ namespace JWTExample.Domain.Services
             account.PasswordHash = BC.HashPassword(model.Password);
 
             // save account
-            _context.Accounts.Add(account);
-            _context.SaveChanges();
+            await _context.Accounts.AddAsync(account);
+            await _context.SaveChangesAsync();
         }
 
-        public void ValidateResetToken(ValidateResetTokenRequest model)
+        public async Task ValidateResetToken(ValidateResetTokenRequest model)
         {
-            var account = _context.Accounts.SingleOrDefault(x =>
+            var account = await _context.Accounts.SingleOrDefaultAsync(x =>
                 x.ResetToken == model.Token &&
                 x.ResetTokenExpires > DateTime.UtcNow);
 
@@ -135,22 +140,23 @@ namespace JWTExample.Domain.Services
                 throw new Exception("Invalid token");
         }
 
-        public IEnumerable<AccountResponse> GetAll()
+        public async Task<IEnumerable<AccountResponse>> GetAll()
         {
-            var accounts = _context.Accounts;
+            var accounts = await _context.Accounts.ToListAsync();
             return accounts.Select(x => _accountResponseMapper.Map(x));
         }
 
-        public AccountResponse GetById(int id)
+        public async Task<AccountResponse> GetById(int id)
         {
-            var account = getAccount(id);
+            var account = await getAccount(id);
             return _accountResponseMapper.Map(account);
         }
 
-        public AccountResponse Create(CreateRequest model)
+        public async Task<AccountResponse> Create(CreateRequest model)
         {
             // validate
-            if (_context.Accounts.Any(x => x.Email == model.Email))
+            var matchingAccounts = await _context.Accounts.AnyAsync(x => x.Email == model.Email);
+            if (matchingAccounts)
                 throw new Exception($"Email '{model.Email}' is already registered");
 
             // map model to new account object
@@ -161,18 +167,19 @@ namespace JWTExample.Domain.Services
             account.PasswordHash = BC.HashPassword(model.Password);
 
             // save account
-            _context.Accounts.Add(account);
-            _context.SaveChanges();
+            await _context.Accounts.AddAsync(account);
+            await _context.SaveChangesAsync();
 
             return _accountResponseMapper.Map(account);
         }
 
-        public AccountResponse Update(int id, UpdateRequest model)
+        public async Task<AccountResponse> Update(int id, UpdateRequest model)
         {
-            var account = getAccount(id);
+            var account = await getAccount(id);
 
             // validate
-            if (account.Email != model.Email && _context.Accounts.Any(x => x.Email == model.Email))
+            var matchingAccounts = await _context.Accounts.AnyAsync(x => x.Email == model.Email);
+            if (account.Email != model.Email && matchingAccounts)
                 throw new Exception($"Email '{model.Email}' is already taken");
 
             // hash password if it was entered
@@ -183,30 +190,30 @@ namespace JWTExample.Domain.Services
             _accountUpdater.Update(model, account);
             account.Updated = DateTime.UtcNow;
             _context.Accounts.Update(account);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
 
             return _accountResponseMapper.Map(account);
         }
 
-        public void Delete(int id)
+        public async Task Delete(int id)
         {
-            var account = getAccount(id);
+            var account = await getAccount(id);
             _context.Accounts.Remove(account);
             _context.SaveChanges();
         }
 
         // helper methods
 
-        private Account getAccount(int id)
+        private async Task<Account> getAccount(int id)
         {
-            var account = _context.Accounts.Find(id);
+            var account = await _context.Accounts.FindAsync(id);
             if (account == null) throw new KeyNotFoundException("Account not found");
             return account;
         }
 
-        private (RefreshToken, Account) getRefreshToken(string token)
+        private async Task<(RefreshToken, Account)> getRefreshToken(string token)
         {
-            var account = _context.Accounts.SingleOrDefault(u => u.RefreshTokens.Any(t => t.Token == token));
+            var account = await _context.Accounts.SingleOrDefaultAsync(u => u.RefreshTokens.Any(t => t.Token == token));
             if (account == null) throw new Exception("Invalid token");
             var refreshToken = account.RefreshTokens.Single(x => x.Token == token);
             if (!refreshToken.IsActive) throw new Exception("Invalid token");
