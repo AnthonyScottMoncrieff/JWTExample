@@ -17,14 +17,14 @@ namespace JWTExample.Domain.Helpers
 {
     public class AccountServiceHelpers : IAccountServiceHelpers
     {
-        public async Task<Account> getAccount(int id, DataContext dataContext)
+        public async Task<Account> GetAccountAsync(int id, DataContext dataContext)
         {
             var account = await dataContext.Accounts.FindAsync(id);
             if (account == null) throw new KeyNotFoundException("Account not found");
             return account;
         }
 
-        public async Task<(RefreshToken, Account)> getRefreshToken(string token, DataContext dataContext)
+        public async Task<(RefreshToken, Account)> GetRefreshTokenAsync(string token, DataContext dataContext)
         {
             var account = await dataContext.Accounts.SingleOrDefaultAsync(u => u.RefreshTokens.Any(t => t.Token == token));
             if (account == null) throw new Exception("Invalid token");
@@ -33,7 +33,7 @@ namespace JWTExample.Domain.Helpers
             return (refreshToken, account);
         }
 
-        public string generateJwtToken(Account account, IAppSettings appSettings)
+        public string GenerateJwtToken(Account account, IAppSettings appSettings)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(appSettings.Secret);
@@ -47,18 +47,18 @@ namespace JWTExample.Domain.Helpers
             return tokenHandler.WriteToken(token);
         }
 
-        public RefreshToken generateRefreshToken(string ipAddress)
+        public RefreshToken GenerateRefreshToken(string ipAddress)
         {
             return new RefreshToken
             {
-                Token = randomTokenString(),
+                Token = RandomTokenString(),
                 Expires = DateTime.UtcNow.AddDays(7),
                 Created = DateTime.UtcNow,
                 CreatedByIp = ipAddress
             };
         }
 
-        public string randomTokenString()
+        public string RandomTokenString()
         {
             using var rngCryptoServiceProvider = new RNGCryptoServiceProvider();
             var randomBytes = new byte[40];

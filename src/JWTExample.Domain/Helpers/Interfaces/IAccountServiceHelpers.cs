@@ -7,14 +7,14 @@ namespace JWTExample.Domain.Helpers.Interfaces
 {
     public interface IAccountServiceHelpers
     {
-        Task<Account> getAccount(int id, DataContext dataContext);
+        Task<Account> GetAccountAsync(int id, DataContext dataContext);
 
-        Task<(RefreshToken, Account)> getRefreshToken(string token, DataContext dataContext);
+        Task<(RefreshToken, Account)> GetRefreshTokenAsync(string token, DataContext dataContext);
 
-        string generateJwtToken(Account account, IAppSettings appSettings);
+        string GenerateJwtToken(Account account, IAppSettings appSettings);
 
-        RefreshToken generateRefreshToken(string ipAddress);
+        RefreshToken GenerateRefreshToken(string ipAddress);
 
-        string randomTokenString();
+        string RandomTokenString();
     }
 }

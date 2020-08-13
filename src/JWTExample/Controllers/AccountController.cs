@@ -27,7 +27,7 @@ namespace JWTExample.Controllers
         [HttpPost("authenticate")]
         public async Task<IActionResult> Authenticate(AuthenticateRequest model)
         {
-            var response = await _accountService.Authenticate(model, _accountControllerHelpers.GetIpAddress(Response, HttpContext));
+            var response = await _accountService.AuthenticateAsync(model, _accountControllerHelpers.GetIpAddress(Response, HttpContext));
             _accountControllerHelpers.SetTokenCookie(response.RefreshToken, Response);
             return Ok(response);
         }
@@ -37,7 +37,7 @@ namespace JWTExample.Controllers
         {
             var refreshToken = Request.Cookies["refreshToken"];
             var ipAddress = _accountControllerHelpers.GetIpAddress(Response, HttpContext);
-            var response = await _accountService.RefreshToken(refreshToken, ipAddress);
+            var response = await _accountService.RefreshTokenAsync(refreshToken, ipAddress);
             _accountControllerHelpers.SetTokenCookie(response.RefreshToken, Response);
             return Ok(response);
         }
@@ -56,21 +56,21 @@ namespace JWTExample.Controllers
             if (!_account.OwnsToken(token) && _account.Role != Role.Admin)
                 return Unauthorized(new { message = "Unauthorized" });
 
-            await _accountService.RevokeToken(token, _accountControllerHelpers.GetIpAddress(Response, HttpContext));
+            await _accountService.RevokeTokenAsync(token, _accountControllerHelpers.GetIpAddress(Response, HttpContext));
             return Ok(new { message = "Token revoked" });
         }
 
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterRequest model)
         {
-            await _accountService.Register(model);
+            await _accountService.RegisterAsync(model);
             return Ok(new { message = "Registration successful, please check your email for verification instructions" });
         }
 
         [HttpPost("validate-reset-token")]
         public async Task<IActionResult> ValidateResetToken(ValidateResetTokenRequest model)
         {
-            await _accountService.ValidateResetToken(model);
+            await _accountService.ValidateResetTokenAsync(model);
             return Ok(new { message = "Token is valid" });
         }
 
@@ -78,7 +78,7 @@ namespace JWTExample.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var accounts = await _accountService.GetAll();
+            var accounts = await _accountService.GetAllAsync();
             return Ok(accounts);
         }
 
@@ -90,7 +90,7 @@ namespace JWTExample.Controllers
             if (id != _account.Id && _account.Role != Role.Admin)
                 return Unauthorized(new { message = "Unauthorized" });
 
-            var account = await _accountService.GetById(id);
+            var account = await _accountService.GetByIdAsync(id);
             return Ok(account);
         }
 
@@ -98,7 +98,7 @@ namespace JWTExample.Controllers
         [HttpPost]
         public async Task<IActionResult> Create(CreateRequest model)
         {
-            var account = await _accountService.Create(model);
+            var account = await _accountService.CreateAsync(model);
             return Ok(account);
         }
 
@@ -114,7 +114,7 @@ namespace JWTExample.Controllers
             if (_account.Role != Role.Admin)
                 model.Role = null;
 
-            var account = await _accountService.Update(id, model);
+            var account = await _accountService.UpdateAsync(id, model);
             return Ok(account);
         }
 
@@ -126,7 +126,7 @@ namespace JWTExample.Controllers
             if (id != _account.Id && _account.Role != Role.Admin)
                 return Unauthorized(new { message = "Unauthorized" });
 
-            await _accountService.Delete(id);
+            await _accountService.DeleteAsync(id);
             return Ok(new { message = "Account deleted successfully" });
         }
     }
