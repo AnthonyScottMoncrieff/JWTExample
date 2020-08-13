@@ -23,10 +23,10 @@ namespace JWTEample
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            IOC.RegisterDependencies(services, Configuration);
             services.AddDbContext<DataContext>(opt => opt.UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()));
             services.AddControllers();
             services.AddMvc();
-            IOC.RegisterDependencies(services, Configuration);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

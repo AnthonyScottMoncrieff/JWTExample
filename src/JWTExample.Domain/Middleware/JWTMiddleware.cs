@@ -13,30 +13,28 @@ namespace JWTExample.Domain.Middleware
     public class JWTMiddleware
     {
         private readonly RequestDelegate _next;
-        private readonly IAppSettings _appSettings;
 
-        public JWTMiddleware(RequestDelegate next, IAppSettings appSettings)
+        public JWTMiddleware(RequestDelegate next)
         {
             _next = next;
-            _appSettings = appSettings;
         }
 
-        public async Task Invoke(HttpContext context, DataContext dataContext)
+        public async Task Invoke(HttpContext context, DataContext dataContext, IAppSettings appSettings)
         {
             var token = context.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
 
             if (token != null)
-                await AttachAccountToContext(context, dataContext, token);
+                await AttachAccountToContext(context, dataContext, token, appSettings);
 
             await _next(context);
         }
 
-        private async Task AttachAccountToContext(HttpContext context, DataContext dataContext, string token)
+        private async Task AttachAccountToContext(HttpContext context, DataContext dataContext, string token, IAppSettings appSettings)
         {
             try
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
-                var key = Encoding.ASCII.GetBytes(_appSettings.Secret);
+                var key = Encoding.ASCII.GetBytes(appSettings.Secret);
                 tokenHandler.ValidateToken(token, new TokenValidationParameters
                 {
                     ValidateIssuerSigningKey = true,
