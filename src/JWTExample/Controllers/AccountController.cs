@@ -36,7 +36,8 @@ namespace JWTExample.Controllers
         public async Task<IActionResult> RefreshToken()
         {
             var refreshToken = Request.Cookies["refreshToken"];
-            var response = await _accountService.RefreshToken(refreshToken, _accountControllerHelpers.GetIpAddress(Response, HttpContext));
+            var ipAddress = _accountControllerHelpers.GetIpAddress(Response, HttpContext);
+            var response = await _accountService.RefreshToken(refreshToken, ipAddress);
             _accountControllerHelpers.SetTokenCookie(response.RefreshToken, Response);
             return Ok(response);
         }
@@ -53,7 +54,7 @@ namespace JWTExample.Controllers
 
             // users can revoke their own tokens and admins can revoke any tokens
             if (!_account.OwnsToken(token) && _account.Role != Role.Admin)
-                return Unauthorized(new { message = "UnBespokeAuthorized" });
+                return Unauthorized(new { message = "Unauthorized" });
 
             await _accountService.RevokeToken(token, _accountControllerHelpers.GetIpAddress(Response, HttpContext));
             return Ok(new { message = "Token revoked" });
@@ -87,7 +88,7 @@ namespace JWTExample.Controllers
         {
             // users can get their own account and admins can get any account
             if (id != _account.Id && _account.Role != Role.Admin)
-                return Unauthorized(new { message = "UnBespokeAuthorized" });
+                return Unauthorized(new { message = "Unauthorized" });
 
             var account = await _accountService.GetById(id);
             return Ok(account);
@@ -107,7 +108,7 @@ namespace JWTExample.Controllers
         {
             // users can update their own account and admins can update any account
             if (id != _account.Id && _account.Role != Role.Admin)
-                return Unauthorized(new { message = "UnBespokeAuthorized" });
+                return Unauthorized(new { message = "Unauthorized" });
 
             // only admins can update role
             if (_account.Role != Role.Admin)
@@ -123,7 +124,7 @@ namespace JWTExample.Controllers
         {
             // users can delete their own account and admins can delete any account
             if (id != _account.Id && _account.Role != Role.Admin)
-                return Unauthorized(new { message = "UnBespokeAuthorized" });
+                return Unauthorized(new { message = "Unauthorized" });
 
             await _accountService.Delete(id);
             return Ok(new { message = "Account deleted successfully" });
