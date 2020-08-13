@@ -47,7 +47,7 @@ namespace JWTEample
             app.UseRouting();
 
             app.UseMiddleware<JWTMiddleware>();
-            app.UseMiddleware<GlobalErrorHandler>();
+            app.UseMiddleware<GlobalErrorHandlerMiddleware>();
 
             ConfigureSwagger(app);
 

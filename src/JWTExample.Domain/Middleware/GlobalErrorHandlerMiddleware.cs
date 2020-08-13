@@ -2,17 +2,16 @@
 using System;
 using System.Collections.Generic;
 using System.Net;
-using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace JWTExample.Domain.Middleware
 {
-    public class GlobalErrorHandler
+    public class GlobalErrorHandlerMiddleware
     {
         private readonly RequestDelegate _next;
 
-        public GlobalErrorHandler(RequestDelegate next)
+        public GlobalErrorHandlerMiddleware(RequestDelegate next)
         {
             _next = next;
         }
@@ -34,6 +33,7 @@ namespace JWTExample.Domain.Middleware
                         // not found error
                         response.StatusCode = (int)HttpStatusCode.NotFound;
                         break;
+
                     default:
                         // unhandled error
                         response.StatusCode = (int)HttpStatusCode.InternalServerError;
